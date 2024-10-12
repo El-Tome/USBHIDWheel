@@ -1,13 +1,15 @@
-#include "USBHID.h"
+#include "MyUSBHID.h"
 #if SOC_USB_OTG_SUPPORTED
 
 #if CONFIG_TINYUSB_HID_ENABLED
 
 #include "USBHIDWheel.h"
 
+#define ARDUHAL_LOG_LEVEL ARDUHAL_LOG_LEVEL_DEBUG
+
+
 // Votre descripteur HID personnalisé
 static const uint8_t report_descriptor[] = {
-   // wheel + paddles + 10 boutons
     0x05, 0x01,        // Usage Page (Generic Desktop Controls)
     0x09, 0x04,        // Usage (Joystick)
     0xA1, 0x01,        // Collection (Application)
@@ -20,91 +22,24 @@ static const uint8_t report_descriptor[] = {
     0x95, 0x01,        // Report Count (1)
     0x81, 0x02,        // Input (Data, Variable, Absolute)
 
-    // Boutons (10 boutons + 2 paddles)
+    // Boutons (4 boutons)
     0x05, 0x09,        // Usage Page (Button)
     0x19, 0x01,        // Usage Minimum (Button 1)
-    0x29, 0x0C,        // Usage Maximum (Button 10 + 2 paddles)
+    0x29, 0x04,        // Usage Maximum (Button 4)
     0x15, 0x00,        // Logical Minimum (0)
     0x25, 0x01,        // Logical Maximum (1)
     0x75, 0x01,        // Report Size (1)
-    0x95, 0x0C,        // Report Count (12)
+    0x95, 0x04,        // Report Count (4)
     0x81, 0x02,        // Input (Data, Variable, Absolute)
 
-
-    // gear shift 8 boutons
-    0x05, 0x09,        // Usage Page (Button)
-    0x19, 0x0D,        // Usage Minimum (Button 13)
-    0x29, 0x15,        // Usage Maximum (Button 21)
-    0x15, 0x00,        // Logical Minimum (0)
-    0x25, 0x01,        // Logical Maximum (1)
-    0x75, 0x01,        // Report Size (1)
-    0x95, 0x08,        // Report Count (8)
-    0x81, 0x02,        // Input (Data, Variable, Absolute)
-
-
-    // 3 pédales (accelerator, brake, clutch)
-    0x05, 0x01,        // Usage Page (Generic Desktop)
-    0x09, 0x33,        // Usage (Rx - Accélérateur)
-    0x15, 0x00,        // Logical Minimum (0)
-    0x26, 0xFF, 0x03,  // Logical Maximum (1023)
-    0x75, 0x10,        // Report Size (16 bits)
+    // Padding pour aligner sur un octet
+    0x75, 0x04,        // Report Size (4 bits)
     0x95, 0x01,        // Report Count (1)
-    0x81, 0x02,        // Input (Data, Variable, Absolute)
-
-    0x09, 0x34,        // Usage (Ry - Frein)
-    0x15, 0x00,        // Logical Minimum (0)
-    0x26, 0xFF, 0x03,  // Logical Maximum (1023)
-    0x75, 0x10,        // Report Size (16 bits)
-    0x95, 0x01,        // Report Count (1)
-    0x81, 0x02,        // Input (Data, Variable, Absolute)
-
-    0x09, 0x35,        // Usage (Rz - Embrayage)
-    0x15, 0x00,        // Logical Minimum (0)
-    0x26, 0xFF, 0x03,  // Logical Maximum (1023)
-    0x75, 0x10,        // Report Size (16 bits)
-    0x95, 0x01,        // Report Count (1)
-    0x81, 0x02,        // Input (Data, Variable, Absolute)
-
-
-    // Force feedback (motor, accelerator, brake, clutch)
-    0x05, 0x0F,        // Usage Page (Physical Interface)
-    0x09, 0x92,        // Usage (Force Feedback)
-    0xA1, 0x02,        // Collection (Logical)
-
-    // Force Feedback (Motor)
-    0x09, 0x9F,        // Usage (Force Feedback Actuator)
-    0x15, 0x00,        // Logical Minimum (0)
-    0x26, 0xFF, 0x00,  // Logical Maximum (255)
-    0x75, 0x08,        // Report Size (8 bits)
-    0x95, 0x01,        // Report Count (1)
-    0x91, 0x02,        // Output (Data, Variable, Absolute)
-
-    // Force Feedback (accelerator)
-    0x09, 0x9F,        // Usage (Force Feedback Actuator)
-    0x15, 0x00,        // Logical Minimum (0)
-    0x26, 0xFF, 0x00,  // Logical Maximum (255)
-    0x75, 0x08,        // Report Size (8 bits)
-    0x95, 0x01,        // Report Count (1)
-    0x91, 0x02,        // Output (Data, Variable, Absolute)
-
-    // Force Feedback (brake)
-    0x09, 0x9F,        // Usage (Force Feedback Actuator)
-    0x15, 0x00,        // Logical Minimum (0)
-    0x26, 0xFF, 0x00,  // Logical Maximum (255)
-    0x75, 0x08,        // Report Size (8 bits)
-    0x95, 0x01,        // Report Count (1)
-    0x91, 0x02,        // Output (Data, Variable, Absolute)
-
-    // Force Feedback (clutch)
-    0x09, 0x9F,        // Usage (Force Feedback Actuator)
-    0x15, 0x00,        // Logical Minimum (0)
-    0x26, 0xFF, 0x00,  // Logical Maximum (255)
-    0x75, 0x08,        // Report Size (8 bits)
-    0x95, 0x01,        // Report Count (1)
-    0x91, 0x02,        // Output (Data, Variable, Absolute)
+    0x81, 0x03,        // Input (Constant, Variable, Absolute)
 
     0xC0               // End Collection
 };
+
 
 USBHIDWheel::USBHIDWheel() : hid() {
   static bool initialized = false;
@@ -135,35 +70,29 @@ void USBHIDWheel::end() {
 }
 
 bool USBHIDWheel::sendReport() {
-  // Préparer le rapport HID en fonction de votre descripteur
-  // Calculer la taille du rapport
-  const int reportSize = 11;
-  uint8_t reportData[reportSize];
-  int index = 0;
+    if (!hid.ready()) {
+    //    log_w("HID not ready");
+        return false;
+    }
 
-  // Ajouter les données au rapport selon le descripteur
+    const int reportSize = 3;
+    uint8_t reportData[reportSize];
+    int index = 0;
 
-  // Volant - Axe X (16 bits)
-  reportData[index++] = wheelPosition & 0xFF;
-  reportData[index++] = (wheelPosition >> 8) & 0xFF;
+    // Préparer le rapport
+    reportData[index++] = wheelPosition & 0xFF;
+    reportData[index++] = (wheelPosition >> 8) & 0xFF;
+    reportData[index++] = (buttons & 0x0F); // Boutons + padding
 
-  // Boutons (12 boutons + 8 boutons du levier de vitesse)
-  reportData[index++] = buttons & 0xFF;
-  reportData[index++] = (buttons >> 8) & 0xFF;
-  reportData[index++] = (buttons >> 16) & 0xFF;
+    // Afficher les données du rapport pour vérification
+//    log_d("Sending report: %02X %02X %02X", reportData[0], reportData[1], reportData[2]);
 
-  // Pédales (3 x 16 bits)
-  reportData[index++] = acceleratorPosition & 0xFF;
-  reportData[index++] = (acceleratorPosition >> 8) & 0xFF;
-
-  reportData[index++] = brakePosition & 0xFF;
-  reportData[index++] = (brakePosition >> 8) & 0xFF;
-
-  reportData[index++] = clutchPosition & 0xFF;
-  reportData[index++] = (clutchPosition >> 8) & 0xFF;
-
-  // Envoyer le rapport HID
-  return hid.SendReport(0, reportData, index);
+    // Envoyer le rapport HID
+    bool result = hid.SendReport(0, reportData, index);
+    if (!result) {
+  //      log_e("Failed to send report");
+    }
+    return result;
 }
 
 void USBHIDWheel::setWheelPosition(uint16_t position) {

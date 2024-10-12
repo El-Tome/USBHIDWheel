@@ -3,12 +3,12 @@
 #include "soc/soc_caps.h"
 #if SOC_USB_OTG_SUPPORTED
 
-#include "USBHID.h"
+#include "MyUSBHID.h"
 #if CONFIG_TINYUSB_HID_ENABLED
 
-class USBHIDWheel : public USBHIDDevice {
+class USBHIDWheel : public MyUSBHIDDevice {
 private:
-    USBHID hid;
+    MyUSBHID hid;
     // Variables pour les axes, boutons, etc.
     uint16_t wheelPosition;       // Position du volant (axe X)
     uint16_t acceleratorPosition; // Position de l'accélérateur
