@@ -1,0 +1,7 @@
+{
+    "name": "Wheel library",
+    "build": {
+        "libArchive": false,
+        "flags": ""
+    }
+}
