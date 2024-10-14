@@ -22,20 +22,50 @@ static const uint8_t report_descriptor[] = {
     0x95, 0x01,        // Report Count (1)
     0x81, 0x02,        // Input (Data, Variable, Absolute)
 
-    // Boutons (4 boutons)
+    // Boutons (10 boutons + 2 paddles)
     0x05, 0x09,        // Usage Page (Button)
     0x19, 0x01,        // Usage Minimum (Button 1)
-    0x29, 0x04,        // Usage Maximum (Button 4)
+    0x29, 0x10,        // Usage Maximum (Button 14 + 2 paddles)
     0x15, 0x00,        // Logical Minimum (0)
     0x25, 0x01,        // Logical Maximum (1)
     0x75, 0x01,        // Report Size (1)
-    0x95, 0x04,        // Report Count (4)
+    0x95, 0x10,        // Report Count (12)
     0x81, 0x02,        // Input (Data, Variable, Absolute)
 
-    // Padding pour aligner sur un octet
-    0x75, 0x04,        // Report Size (4 bits)
+
+    // gear shift 8 boutons
+    0x05, 0x09,        // Usage Page (Button)
+    0x19, 0x11,        // Usage Minimum (Button 13)
+    0x29, 0x19,        // Usage Maximum (Button 21)
+    0x15, 0x00,        // Logical Minimum (0)
+    0x25, 0x01,        // Logical Maximum (1)
+    0x75, 0x01,        // Report Size (1)
+    0x95, 0x08,        // Report Count (8)
+    0x81, 0x02,        // Input (Data, Variable, Absolute)
+
+
+    // 3 pédales (accelerator, brake, clutch)
+    0x05, 0x01,        // Usage Page (Generic Desktop)
+    0x09, 0x33,        // Usage (Rx - Accélérateur)
+    0x15, 0x00,        // Logical Minimum (0)
+    0x26, 0xFF, 0x03,  // Logical Maximum (1023)
+    0x75, 0x10,        // Report Size (16 bits)
     0x95, 0x01,        // Report Count (1)
-    0x81, 0x03,        // Input (Constant, Variable, Absolute)
+    0x81, 0x02,        // Input (Data, Variable, Absolute)
+
+    0x09, 0x34,        // Usage (Ry - Frein)
+    0x15, 0x00,        // Logical Minimum (0)
+    0x26, 0xFF, 0x03,  // Logical Maximum (1023)
+    0x75, 0x10,        // Report Size (16 bits)
+    0x95, 0x01,        // Report Count (1)
+    0x81, 0x02,        // Input (Data, Variable, Absolute)
+
+    0x09, 0x35,        // Usage (Rz - Embrayage)
+    0x15, 0x00,        // Logical Minimum (0)
+    0x26, 0xFF, 0x03,  // Logical Maximum (1023)
+    0x75, 0x10,        // Report Size (16 bits)
+    0x95, 0x01,        // Report Count (1)
+    0x81, 0x02,        // Input (Data, Variable, Absolute)
 
     0xC0               // End Collection
 };
@@ -50,10 +80,10 @@ USBHIDWheel::USBHIDWheel() : hid() {
 
   // Initialiser les variables
   wheelPosition = 512;        // Milieu
+  buttons = 0;
   acceleratorPosition = 0;
   brakePosition = 0;
   clutchPosition = 0;
-  buttons = 0;
 }
 
 uint16_t USBHIDWheel::_onGetDescriptor(uint8_t *dst) {
@@ -71,27 +101,30 @@ void USBHIDWheel::end() {
 
 bool USBHIDWheel::sendReport() {
     if (!hid.ready()) {
-    //    log_w("HID not ready");
         return false;
     }
 
-    const int reportSize = 3;
+    const int reportSizeBits = 16 + 14 + 2 + 8 + 16 + 16 + 16;   // wheel + buttons + gear shift + brake + clutch + accelerator
+    const int reportSize = reportSizeBits / 8;
     uint8_t reportData[reportSize];
     int index = 0;
 
     // Préparer le rapport
-    reportData[index++] = wheelPosition & 0xFF;
-    reportData[index++] = (wheelPosition >> 8) & 0xFF;
-    reportData[index++] = (buttons & 0x0F); // Boutons + padding
+    reportData[index++] = wheelPosition & 0xFF;                         // octet 0
+    reportData[index++] = (wheelPosition >> 8) & 0xFF;                  // octet 1
+    reportData[index++] = (buttons & 0xFF);                             // octet 2
+    reportData[index++] = (buttons >> 8) & 0xFF;                        // octet 3
+    reportData[index++] = (buttons >> 16) & 0xFF;                       // octet 4
+    reportData[index++] = acceleratorPosition & 0xFF;                   // octet 5
+    reportData[index++] = (acceleratorPosition >> 8) & 0xFF;            // octet 6
+    reportData[index++] = brakePosition & 0xFF;                         // octet 7
+    reportData[index++] = (brakePosition >> 8) & 0xFF;                  // octet 8
+    reportData[index++] = clutchPosition & 0xFF;                        // octet 9
+    reportData[index++] = (clutchPosition >> 8) & 0xFF;                 // octet 10
 
-    // Afficher les données du rapport pour vérification
-//    log_d("Sending report: %02X %02X %02X", reportData[0], reportData[1], reportData[2]);
 
     // Envoyer le rapport HID
     bool result = hid.SendReport(0, reportData, index);
-    if (!result) {
-  //      log_e("Failed to send report");
-    }
     return result;
 }
 
