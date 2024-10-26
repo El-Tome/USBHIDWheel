@@ -43,6 +43,7 @@ public:
     // Méthodes internes
     uint16_t _onGetDescriptor(uint8_t *buffer);
     void _onOutput(uint8_t report_id, const uint8_t *buffer, uint16_t len);
+	int _onGetFeature(uint8_t report_id, uint8_t *buffer, uint16_t len);
 };
 
 #endif /* CONFIG_TINYUSB_HID_ENABLED */
