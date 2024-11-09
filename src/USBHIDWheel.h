@@ -37,13 +37,11 @@ public:
     // Méthode pour envoyer manuellement le rapport si nécessaire
     bool sendState();
 
-    // Méthodes pour gérer le force feedback (à implémenter)
-    // ...
+    void handlePIDStateReport(const uint8_t *buffer, uint16_t len);
 
     // Méthodes internes
     uint16_t _onGetDescriptor(uint8_t *buffer);
     void _onOutput(uint8_t report_id, const uint8_t *buffer, uint16_t len);
-	int _onGetFeature(uint8_t report_id, uint8_t *buffer, uint16_t len);
 };
 
 #endif /* CONFIG_TINYUSB_HID_ENABLED */
